@@ -1,0 +1,20 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend/car-racing-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/car-racing-frontend:/app
+    working_dir: /app
+    command: npm run dev
+    restart: unless-stopped

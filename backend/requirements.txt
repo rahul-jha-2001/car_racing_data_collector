@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+gymnasium
+gymnasium[box2d]
+numpy
+opencv-python-headless
