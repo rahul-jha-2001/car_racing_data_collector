@@ -63,6 +63,7 @@ s3 = boto3.client("s3", region_name=AWS_REGION, config=Config(max_pool_connectio
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Starting application lifespan...")
     # STARTUP
     try:
         await mongo_client.server_info()
@@ -73,7 +74,7 @@ async def lifespan(app: FastAPI):
 
     try:
         s3.list_buckets()
-        logger.info("✅ S3 connected successfully at startup")
+        logger.info(f"✅ Connected to S3 and verified access to bucket '{S3_BUCKET}'")
     except Exception as e:
         logger.error(f"❌ S3 connection failed at startup: {e}")
 
@@ -93,12 +94,14 @@ async def lifespan(app: FastAPI):
     yield
 
     # SHUTDOWN (optional)
+    logger.info("Shutting down application lifespan...")
     try:
         await redis_client.close()
+        logger.info("✅ Redis connection closed cleanly")
     except Exception as e:
         logger.warning(f"⚠️ Redis failed to close cleanly: {e}")
 
-app = FastAPI(lifespan=lifespan)  # Instead of app = FastAPI()
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -108,6 +111,7 @@ app.add_middleware(
 )
 
 def store_frame(obs, action, reward, done, session_id, frame):
+    logger.info(f"Storing frame {frame} for session {session_id}...")
     try:
         img = Image.fromarray(obs)
         buffer = io.BytesIO()
@@ -116,6 +120,8 @@ def store_frame(obs, action, reward, done, session_id, frame):
 
         image_key = f"car-racing-data/{session_id}/{frame}.png"
         s3.upload_fileobj(buffer, S3_BUCKET, image_key)
+        logger.info(f"✅ Uploaded image frame {frame} to S3")
+
         metadata = {
             "frame": frame,
             "action": action,
@@ -125,13 +131,13 @@ def store_frame(obs, action, reward, done, session_id, frame):
         metadata_bytes = io.BytesIO(json.dumps(metadata).encode("utf-8"))
         json_key = f"car-racing-data/{session_id}/{frame}.json"
         s3.upload_fileobj(metadata_bytes, S3_BUCKET, json_key)
+        logger.info(f"✅ Uploaded metadata for frame {frame} to S3")
 
     except Exception as e:
         logger.warning(f"❌ Failed to upload frame or metadata to S3: {e}")
 
 async def upload_session_bulk(frames, session_id):
-    """Upload entire session as single archive file"""
-    
+    logger.info(f"Uploading session {session_id} as a single archive...")
     def create_and_upload_archive():
         with tempfile.NamedTemporaryFile(suffix='.tar.gz', delete=False) as temp_file:
             try:
@@ -171,14 +177,13 @@ async def upload_session_bulk(frames, session_id):
                 # Clean up temp file
                 if os.path.exists(temp_file.name):
                     os.unlink(temp_file.name)
+                    logger.info(f"✅ Temporary archive file cleaned up")
     
     create_and_upload_archive()
 
-
-
-
 @app.websocket("/ws/play")
 async def play_game(websocket: WebSocket):
+    logger.info("WebSocket connection initiated...")
     await websocket.accept()
     name = "Anonymous"
     env = gym.make("CarRacing-v3", render_mode="rgb_array")
@@ -193,9 +198,11 @@ async def play_game(websocket: WebSocket):
     logger.info(f"Sent init (w={w}, h={h})")
 
     await redis_client.expire(f"session:{session_id}", 600)
+    logger.info(f"Redis session {session_id} set to expire in 600 seconds")
 
     async def game_loop():
         nonlocal obs, sent_frames, action, total_reward
+        logger.info("Game loop started...")
         try:
             while True:
                 current_obs = obs.copy()
@@ -213,7 +220,6 @@ async def play_game(websocket: WebSocket):
                     })
                 )
                 await redis_client.expire(f"session:{session_id}", 600)
-
                 logger.info(f"Pushed frame {sent_frames} to Redis")
 
                 raw = obs.tobytes()
@@ -225,6 +231,7 @@ async def play_game(websocket: WebSocket):
                     "reward": float(total_reward),
                     "frame": sent_frames
                 }))
+                logger.info(f"Sent frame metadata for frame {sent_frames}")
 
                 sent_frames += 1
 
@@ -233,7 +240,7 @@ async def play_game(websocket: WebSocket):
                         "type": "done",
                         "score": float(total_reward)
                     }))
-                
+                    logger.info(f"Game terminated or truncated. Final score: {total_reward}")
 
                     await sessions_collection.insert_one({
                         "session_id": session_id,
@@ -241,8 +248,6 @@ async def play_game(websocket: WebSocket):
                         "score": float(total_reward),
                         "timestamp": asyncio.get_event_loop().time(),
                     })
-
-                    
                     logger.info(f"✅ Final score recorded for {name} (session={session_id})")
 
                     obs, _ = env.reset()
@@ -266,17 +271,18 @@ async def play_game(websocket: WebSocket):
 
             elif data.get("type") == "action":
                 action = np.array(data["action"], dtype=np.float32)
+                logger.info(f"Received action from '{name}': {action}")
 
             else:
                 logger.warning(f"Unknown type from '{name}': {data.get('type')}")
     except WebSocketDisconnect:
         logger.info(f"WebSocket closed by '{name}'")
     finally:
-
+        logger.info("Cleaning up after WebSocket disconnect...")
         game_task.cancel()
         env.close()
-        logger.info(f"Pulling from redis")
-        frames = None  # Initialize frames to None
+        logger.info(f"Pulling frames from Redis for session {session_id}")
+        frames = None
         exists = await redis_client.exists(f"session:{session_id}")
         if exists:
             for attempt in range(3):
@@ -285,6 +291,7 @@ async def play_game(websocket: WebSocket):
                         redis_client.lrange(f"session:{session_id}", 0, -1),
                         timeout=5.0
                     )
+                    logger.info(f"Successfully pulled frames from Redis (attempt {attempt + 1})")
                     break
                 except asyncio.TimeoutError:
                     frames = None
@@ -294,12 +301,13 @@ async def play_game(websocket: WebSocket):
 
         if frames is not None and len(frames) != 0:
             await upload_session_bulk(frames=frames, session_id=session_id)
-            await redis_client.delete(f"session:{session_id}")  # Clean up after upload
+            await redis_client.delete(f"session:{session_id}")
+            logger.info(f"✅ Redis session {session_id} cleaned up after upload")
         else:
-            logger.error(f"frames co not be read by redis: {session_id}")
-
+            logger.error(f"Frames could not be read from Redis for session {session_id}")
 
 def clean_score(score_doc):
+    logger.info(f"Cleaning score document: {score_doc}")
     return {
         "id": str(score_doc["_id"]),
         "session_id": score_doc["session_id"],
@@ -310,5 +318,7 @@ def clean_score(score_doc):
 
 @app.get("/api/scores", response_model=List[ScoreModel])
 async def get_scores(limit: int = 10):
+    logger.info(f"Fetching top {limit} scores from MongoDB...")
     raw_scores = await sessions_collection.find().sort("score", -1).limit(limit).to_list(length=limit)
+    logger.info(f"Fetched {len(raw_scores)} scores from MongoDB")
     return [clean_score(score) for score in raw_scores]
