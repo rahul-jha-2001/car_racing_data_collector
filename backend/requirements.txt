@@ -5,3 +5,9 @@ gymnasium[box2d]
 numpy
 opencv-python-headless
 motor
+boto3
+pillow
+pymongo
+motor
+
+redis[async]

@@ -10,20 +10,22 @@ export default function Home() {
   const [score, setScore] = useState<number | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [speed, setSpeed] = useState<number>(0);
+  const [topScores, setTopScores] = useState<
+    { player: string; score: number; session_id: string }[]
+  >([]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const wsRef = useRef<WebSocket>();
-  const workerRef = useRef<Worker>();
+  const wsRef = useRef<WebSocket | null>(null);
+  const workerRef = useRef<Worker | null>(null);
+  
+  // Track pressed keys
+  const keysPressed = useRef<Set<string>>(new Set());
+  const actionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const DISPLAY_SCALE = 4;
 
   const resetGame = () => {
-    setIsDriving(false);
-    setGameOver(false);
-    setScore(null);
-    setCountdown(null);
-    setSpeed(0);
-    setName("");
+    window.location.reload(); // 🔁 Full page refresh
   };
 
   const beginCountdown = useCallback(() => {
@@ -46,7 +48,7 @@ export default function Home() {
     if (!isDriving) return;
 
     const canvasEl = canvasRef.current!;
-    const ws = new WebSocket("ws://localhost:8000/ws/play");
+    const ws = new WebSocket(`ws://${process.env.NEXT_PUBLIC_API_BASE_URL}/ws/play`);
     ws.binaryType = "arraybuffer";
     wsRef.current = ws;
 
@@ -101,6 +103,20 @@ export default function Home() {
     };
   }, [isDriving, name]);
 
+  useEffect(() => {
+    const fetchScores = async () => {
+      try {
+        const res = await fetch(`http://${process.env.NEXT_PUBLIC_API_BASE_URL}/api/scores`);
+        const data = await res.json();
+        setTopScores(data);
+      } catch (err) {
+        console.error("Failed to load top scores:", err);
+      }
+    };
+
+    fetchScores();
+  }, []);
+
   const sendAction = useCallback((action: number[]) => {
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -109,37 +125,95 @@ export default function Home() {
     setSpeed(action[1] * 100); // Estimate speed from gas
   }, []);
 
-  useEffect(() => {
-    if (!isDriving) return;
-    const id = setInterval(() => sendAction([0, 0, 0]), 100);
-    return () => clearInterval(id);
-  }, [isDriving, sendAction]);
+  // Calculate current action based on pressed keys
+  const getCurrentAction = useCallback((): number[] => {
+    let steering = 0;
+    let gas = 0;
+    let brake = 0;
 
-  const handleKey = useCallback(
-    (e: KeyboardEvent) => {
-      if (!isDriving || countdown !== null) return;
-      switch (e.key) {
-        case "ArrowUp":
-          sendAction([0, 1, 0]);
-          break;
-        case "ArrowLeft":
-          sendAction([-1, 0, 0]);
-          break;
-        case "ArrowRight":
-          sendAction([1, 0, 0]);
-          break;
-        case "ArrowDown":
-          sendAction([0, 0, 0.8]);
-          break;
+    if (keysPressed.current.has("ArrowLeft")) steering -= 1;
+    if (keysPressed.current.has("ArrowRight")) steering += 1;
+    if (keysPressed.current.has("ArrowUp")) gas = 1;
+    if (keysPressed.current.has("ArrowDown")) brake = 0.8;
+
+    // Alternative keys for WASD users
+    if (keysPressed.current.has("a") || keysPressed.current.has("A")) steering -= 1;
+    if (keysPressed.current.has("d") || keysPressed.current.has("D")) steering += 1;
+    if (keysPressed.current.has("w") || keysPressed.current.has("W")) gas = 1;
+    if (keysPressed.current.has("s") || keysPressed.current.has("S")) brake = 0.8;
+
+    // Clamp steering to -1, 1 range
+    steering = Math.max(-1, Math.min(1, steering));
+
+    return [steering, gas, brake];
+  }, []);
+
+  // Continuous action sending based on held keys
+  useEffect(() => {
+    if (!isDriving || countdown !== null) {
+      if (actionIntervalRef.current) {
+        clearInterval(actionIntervalRef.current);
+        actionIntervalRef.current = null;
       }
-    },
-    [isDriving, countdown, sendAction]
-  );
+      return;
+    }
+
+    actionIntervalRef.current = setInterval(() => {
+      const action = getCurrentAction();
+      sendAction(action);
+    }, 50); // Send actions every 50ms for smooth control
+
+    return () => {
+      if (actionIntervalRef.current) {
+        clearInterval(actionIntervalRef.current);
+        actionIntervalRef.current = null;
+      }
+    };
+  }, [isDriving, countdown, getCurrentAction, sendAction]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (!isDriving || countdown !== null) return;
+    
+    // Prevent default behavior for arrow keys to avoid page scrolling
+    if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+      e.preventDefault();
+    }
+
+    keysPressed.current.add(e.key);
+  }, [isDriving, countdown]);
+
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    keysPressed.current.delete(e.key);
+  }, []);
 
   useEffect(() => {
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [handleKey]);
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [handleKeyDown, handleKeyUp]);
+
+  // Clear keys when game ends or focus is lost
+  useEffect(() => {
+    const clearKeys = () => {
+      keysPressed.current.clear();
+    };
+
+    window.addEventListener("blur", clearKeys);
+    window.addEventListener("focus", clearKeys);
+
+    if (!isDriving) {
+      clearKeys();
+    }
+
+    return () => {
+      window.removeEventListener("blur", clearKeys);
+      window.removeEventListener("focus", clearKeys);
+    };
+  }, [isDriving]);
 
   const start = useCallback(() => {
     if (!name.trim()) {
@@ -160,20 +234,102 @@ export default function Home() {
     touchAction: "manipulation",
   };
 
+  // Mobile button handlers for touch support
+  const handleMobileAction = useCallback((action: number[]) => {
+    sendAction(action);
+  }, [sendAction]);
+
   return (
-    <div style={{ textAlign: "center", padding: "2rem", position: "relative" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#000",
+        color: "#FFD700", // Gold
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        flexDirection: "column",
+        padding: "2rem",
+        fontFamily: "'Segoe UI', sans-serif",
+      }}
+    >
       {!isDriving && !gameOver && countdown === null && (
         <>
-          <h1>Enter Your Name</h1>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Driver name"
-            style={{ padding: "0.5rem", marginRight: "1rem" }}
-          />
-          <button onClick={start} style={{ padding: "0.5rem 1rem" }}>
-            Start Driving
-          </button>
+          <h1 style={{ color: "#FFD700", fontSize: "2rem" }}>Enter Your Name</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1rem" }}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Driver name"
+              style={{
+                padding: "0.5rem 1rem",
+                backgroundColor: "#111",
+                border: "2px solid #FFD700",
+                color: "#FFD700",
+                borderRadius: "0.5rem",
+                fontSize: "1rem",
+              }}
+            />
+            <button
+              onClick={start}
+              style={{
+                padding: "0.5rem 1.2rem",
+                backgroundColor: "#FFD700",
+                color: "#000",
+                fontWeight: "bold",
+                borderRadius: "0.5rem",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Start Driving
+            </button>
+          </div>
+
+          <div style={{ 
+            marginTop: "1.5rem", 
+            textAlign: "center", 
+            color: "#AAA",
+            fontSize: "0.9rem"
+          }}>
+            <p><strong>Controls:</strong></p>
+            <p>Arrow Keys or WASD to drive</p>
+            <p>Hold multiple keys for combined actions</p>
+          </div>
+
+          {topScores.length > 0 && (
+            <div
+              style={{
+                marginTop: "2rem",
+                backgroundColor: "#111",
+                padding: "1rem 1.5rem",
+                borderRadius: "1rem",
+                maxWidth: "300px",
+                boxShadow: "0 0 10px rgba(255, 215, 0, 0.5)",
+                color: "#FFD700",
+              }}
+            >
+              <h4 style={{ marginTop: 0 }}>🏆 Top Scores</h4>
+              <ol style={{ paddingLeft: "1.2rem", margin: 0 }}>
+                {topScores.map((s, i) => {
+                  const prefix =
+                    i === 0
+                      ? "🥇 "
+                      : i === 1
+                      ? "🥈 "
+                      : i === 2
+                      ? "🥉 "
+                      : `${i + 1}. `;
+                  return (
+                    <li key={s.session_id} style={{ marginBottom: "0.25rem" }}>
+                      {prefix}
+                      {s.player || "Anonymous"} – {s.score.toFixed(1)}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
         </>
       )}
 
@@ -200,12 +356,44 @@ export default function Home() {
             }}
           >
             <div>
-              <button onClick={() => sendAction([0, 1, 0])} style={mobileBtnStyle}>⬆️</button>
+              <button 
+                onMouseDown={() => handleMobileAction([0, 1, 0])} 
+                onMouseUp={() => handleMobileAction([0, 0, 0])}
+                onTouchStart={() => handleMobileAction([0, 1, 0])}
+                onTouchEnd={() => handleMobileAction([0, 0, 0])}
+                style={mobileBtnStyle}
+              >
+                ⬆️
+              </button>
             </div>
             <div style={{ display: "flex", gap: "1rem" }}>
-              <button onClick={() => sendAction([-1, 0, 0])} style={mobileBtnStyle}>⬅️</button>
-              <button onClick={() => sendAction([0, 0, 0.8])} style={mobileBtnStyle}>⏹️</button>
-              <button onClick={() => sendAction([1, 0, 0])} style={mobileBtnStyle}>➡️</button>
+              <button 
+                onMouseDown={() => handleMobileAction([-1, 0, 0])} 
+                onMouseUp={() => handleMobileAction([0, 0, 0])}
+                onTouchStart={() => handleMobileAction([-1, 0, 0])}
+                onTouchEnd={() => handleMobileAction([0, 0, 0])}
+                style={mobileBtnStyle}
+              >
+                ⬅️
+              </button>
+              <button 
+                onMouseDown={() => handleMobileAction([0, 0, 0.8])} 
+                onMouseUp={() => handleMobileAction([0, 0, 0])}
+                onTouchStart={() => handleMobileAction([0, 0, 0.8])}
+                onTouchEnd={() => handleMobileAction([0, 0, 0])}
+                style={mobileBtnStyle}
+              >
+                ⏹️
+              </button>
+              <button 
+                onMouseDown={() => handleMobileAction([1, 0, 0])} 
+                onMouseUp={() => handleMobileAction([0, 0, 0])}
+                onTouchStart={() => handleMobileAction([1, 0, 0])}
+                onTouchEnd={() => handleMobileAction([0, 0, 0])}
+                style={mobileBtnStyle}
+              >
+                ➡️
+              </button>
             </div>
           </div>
         </>
