@@ -10,6 +10,4 @@ pillow
 pymongo
 motor
 backoff
-
 redis[async]
-pydantic
