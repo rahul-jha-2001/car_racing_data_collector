@@ -9,5 +9,6 @@ boto3
 pillow
 pymongo
 motor
+backoff
 
 redis[async]

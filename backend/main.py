@@ -19,6 +19,8 @@ from botocore.config import Config
 import tarfile
 import tempfile
 import os
+import backoff
+
 
 from pydantic import BaseModel
 from typing import List
@@ -59,7 +61,6 @@ s3 = boto3.client("s3", region_name=AWS_REGION, config=Config(max_pool_connectio
 
 # FastAPI setup
 
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # STARTUP
@@ -77,16 +78,18 @@ async def lifespan(app: FastAPI):
         logger.error(f"❌ S3 connection failed at startup: {e}")
 
     try:
-        pong = await redis_client.ping()
+        pong = await check_redis()
         logger.info(f"✅ Redis connected: {pong}")
     except Exception as e:
         logger.error(f"❌ Redis connection failed at startup: {e}")
 
-    yield  # This allows the app to run
+    yield
 
-    # SHUTDOWN (optional cleanup logic here)
-    # e.g., await mongo_client.close(), etc.
-
+    # SHUTDOWN (optional)
+    try:
+        await redis_client.close()
+    except Exception as e:
+        logger.warning(f"⚠️ Redis failed to close cleanly: {e}")
 
 app = FastAPI(lifespan=lifespan)  # Instead of app = FastAPI()
 app.add_middleware(
@@ -119,7 +122,7 @@ def store_frame(obs, action, reward, done, session_id, frame):
     except Exception as e:
         logger.warning(f"❌ Failed to upload frame or metadata to S3: {e}")
 
-async def upload_session_bulk(frames, session_id):
+def upload_session_bulk(frames, session_id):
     """Upload entire session as single archive file"""
     
     def create_and_upload_archive():
@@ -162,7 +165,7 @@ async def upload_session_bulk(frames, session_id):
                 if os.path.exists(temp_file.name):
                     os.unlink(temp_file.name)
     
-    await asyncio.to_thread(create_and_upload_archive)
+    create_and_upload_archive()
 
 
 
@@ -202,6 +205,8 @@ async def play_game(websocket: WebSocket):
                         "done": terminated or truncated
                     })
                 )
+                await redis_client.expire(f"session:{session_id}", 600)
+
                 logger.info(f"Pushed frame {sent_frames} to Redis")
 
                 raw = obs.tobytes()
@@ -264,49 +269,26 @@ async def play_game(websocket: WebSocket):
         game_task.cancel()
         env.close()
         logger.info(f"Pulling from redis")
-        for attempt in range(3):
-            try:
-                frames = await asyncio.wait_for(
-                    redis_client.lrange(f"session:{session_id}", 0, -1),
-                    timeout=5.0
-                )
-                break
-            except asyncio.TimeoutError:
-                logger.warning(f"Retrying Redis pull (attempt {attempt + 1})...")
+        frames = None  # Initialize frames to None
+        exists = await redis_client.exists(f"session:{session_id}")
+        if not exists:
+            for attempt in range(3):
+                try:
+                    frames = await asyncio.wait_for(
+                        redis_client.lrange(f"session:{session_id}", 0, -1),
+                        timeout=5.0
+                    )
+                    break
+                except asyncio.TimeoutError:
+                    frames = None
+                    logger.warning(f"Retrying Redis pull (attempt {attempt + 1})...")
+            else:
+                logger.error("❌ Failed to pull frames from Redis after retries")
+
+        if frames is not None and len(frames) != 0:
+            upload_session_bulk(frames=frames, session_id=session_id)
         else:
-            logger.error("❌ Failed to pull frames from Redis after retries")
-
-        # for frame_json in frames:
-        #     data = json.loads(frame_json)
-        #     obs_array = np.array(data["obs"], dtype=np.uint8)
-
-        #     # Wrap the blocking S3 upload in asyncio.to_thread
-        #     task = asyncio.to_thread(
-        #         store_frame,
-        #         obs_array,
-        #         data["action"],
-        #         data["reward"],
-        #         data["done"],
-        #         session_id,
-        #         data["frame"]
-        #     )
-        #     upload_tasks.append(task)
-        #     logger.info(f"frame pushed to que")
-
-            # Batch upload all in parallel
-        # await asyncio.gather(*upload_tasks)
-        # logger.info(f"Env closed for '{name}'")
-        # await asyncio.to_thread(create_and_upload_archive)
-
-        await upload_session_bulk(frames=frames,session_id=session_id)
-
-
-
-
-
-
-
-
+            logger.error(f"frames could not be read by redis: {session_id}")
 
 
 def clean_score(score_doc):
