@@ -77,6 +77,13 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"❌ S3 connection failed at startup: {e}")
 
+    async def check_redis():
+        try:
+            return await redis_client.ping()
+        except Exception as e:
+            logger.error(f"❌ Redis ping failed: {e}")
+            raise
+
     try:
         pong = await check_redis()
         logger.info(f"✅ Redis connected: {pong}")
