@@ -264,18 +264,17 @@ async def play_game(websocket: WebSocket):
         game_task.cancel()
         env.close()
         logger.info(f"Pulling from redis")
-        try:
-            frames = await asyncio.wait_for(
-                redis_client.lrange(f"session:{session_id}", 0, -1),
-                timeout=3.0
-            )
-            logger.info(f"frames pulled from redis: {len(frames)}")
-        except asyncio.TimeoutError:
-            logger.error("❌ Timeout pulling frames from Redis")
-        except Exception as e:
-            logger.error(f"❌ Redis lrange failed: {e}")
-
-        await redis_client.delete(f"session:{session_id}")
+        for attempt in range(3):
+            try:
+                frames = await asyncio.wait_for(
+                    redis_client.lrange(f"session:{session_id}", 0, -1),
+                    timeout=5.0
+                )
+                break
+            except asyncio.TimeoutError:
+                logger.warning(f"Retrying Redis pull (attempt {attempt + 1})...")
+        else:
+            logger.error("❌ Failed to pull frames from Redis after retries")
 
         # for frame_json in frames:
         #     data = json.loads(frame_json)
