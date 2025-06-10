@@ -220,8 +220,7 @@ async def play_game(websocket: WebSocket):
                     })
                 )
                 await redis_client.expire(f"session:{session_id}", 600)
-                logger.info(f"Pushed frame {sent_frames} to Redis")
-
+                
                 raw = obs.tobytes()
                 comp = zlib.compress(raw, level=3)
                 await websocket.send_bytes(comp)
@@ -231,7 +230,7 @@ async def play_game(websocket: WebSocket):
                     "reward": float(total_reward),
                     "frame": sent_frames
                 }))
-                logger.info(f"Sent frame metadata for frame {sent_frames}")
+                
 
                 sent_frames += 1
 
