@@ -272,7 +272,6 @@ async def play_game(websocket: WebSocket):
 
             elif data.get("type") == "action":
                 action = np.array(data["action"], dtype=np.float32)
-                logger.info(f"Received action from '{name}': {action}")
 
             else:
                 logger.warning(f"Unknown type from '{name}': {data.get('type')}")
@@ -281,9 +280,9 @@ async def play_game(websocket: WebSocket):
     finally:
         logger.info("Cleaning up after WebSocket disconnect...")
 
-        logger.info(f"Pulling frames from Redis for session {session_id}")
+        logger.info(f"Pulling frames from in-memory store for session {session_id}")
         frames = None
-        exists = await redis_client.exists(f"session:{session_id}")
+        exists = await IN_MEMORY_STORE.exists(f"session:{session_id}")
         if exists:
             for attempt in range(3):
                 try:
@@ -291,22 +290,22 @@ async def play_game(websocket: WebSocket):
                         IN_MEMORY_STORE.lrange(f"session:{session_id}", 0, -1),
                         timeout=5.0
                     )
-                    logger.info(f"Successfully pulled frames from Redis (attempt {attempt + 1})")
+                    logger.info(f"Successfully pulled frames from in-memory store (attempt {attempt + 1})")
                     break
                 except asyncio.TimeoutError:
                     frames = None
-                    logger.warning(f"Retrying Redis pull (attempt {attempt + 1})...")
+                    logger.warning(f"Retrying in-memory store pull (attempt {attempt + 1})...")
             else:
-                logger.error("❌ Failed to pull frames from Redis after retries")
+                logger.error("❌ Failed to pull frames from in-memory store after retries")
 
         if frames is not None and len(frames) != 0:
             await upload_session_bulk(frames=frames, session_id=session_id)
-            await redis_client.delete(f"session:{session_id}")
-            logger.info(f"✅ Redis session {session_id} cleaned up after upload")
+            await IN_MEMORY_STORE.delete(f"session:{session_id}")
+            logger.info(f"✅ in-memory store session {session_id} cleaned up after upload")
             game_task.cancel()
             env.close()
         else:
-            logger.error(f"Frames could not be read from Redis for session {session_id}")
+            logger.error(f"Frames could not be read from in-memory store for session {session_id}")
 
 def clean_score(score_doc):
     logger.info(f"Cleaning score document: {score_doc}")
