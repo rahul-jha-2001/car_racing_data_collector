@@ -23,6 +23,7 @@ export default function Home() {
   const actionIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const DISPLAY_SCALE = 4;
+  console.log(process.env.NEXT_PUBLIC_API_BASE_URL);
 
   const resetGame = () => {
     window.location.reload(); // 🔁 Full page refresh
