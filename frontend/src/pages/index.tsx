@@ -254,240 +254,320 @@ export default function Home() {
         fontFamily: "'Segoe UI', sans-serif",
       }}
     >
-      {isDriving && (
-  <>
-    <h2>Welcome, {name}!</h2>
-    <canvas
-      ref={canvasRef}
-      style={{
-        border: "1px solid #ccc",
-        imageRendering: "pixelated",
-        display: "block",
-        margin: "1rem auto",
-        touchAction: "none",
-      }}
-    />
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        marginTop: "1rem",
-        gap: "0.5rem",
-        userSelect: "none",
-        WebkitUserSelect: "none",
-      }}
-    >
-      <div>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 1, 0]);
-          }}
-          onMouseUp={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onMouseLeave={() => handleMobileAction([0, 0, 0])}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 1, 0]);
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onTouchCancel={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{
-            ...mobileBtnStyle,
-            fontSize: "2rem",
-            minWidth: "60px",
-            minHeight: "60px",
-            border: "2px solid #333",
-            borderRadius: "12px",
-            backgroundColor: "#f0f0f0",
-            cursor: "pointer",
-            userSelect: "none",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            touchAction: "manipulation",
-          }}
-        >
-          ⬆️
-        </button>
-      </div>
-      <div style={{ display: "flex", gap: "1rem" }}>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleMobileAction([-1, 0, 0]);
-          }}
-          onMouseUp={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onMouseLeave={() => handleMobileAction([0, 0, 0])}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleMobileAction([-1, 0, 0]);
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onTouchCancel={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{
-            ...mobileBtnStyle,
-            fontSize: "2rem",
-            minWidth: "60px",
-            minHeight: "60px",
-            border: "2px solid #333",
-            borderRadius: "12px",
-            backgroundColor: "#f0f0f0",
-            cursor: "pointer",
-            userSelect: "none",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            touchAction: "manipulation",
-          }}
-        >
-          ⬅️
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0.8]);
-          }}
-          onMouseUp={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onMouseLeave={() => handleMobileAction([0, 0, 0])}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0.8]);
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onTouchCancel={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{
-            ...mobileBtnStyle,
-            fontSize: "2rem",
-            minWidth: "60px",
-            minHeight: "60px",
-            border: "2px solid #333",
-            borderRadius: "12px",
-            backgroundColor: "#ffcccc",
-            cursor: "pointer",
-            userSelect: "none",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            touchAction: "manipulation",
-          }}
-        >
-          ⏹️
-        </button>
-        <button
-          onMouseDown={(e) => {
-            e.preventDefault();
-            handleMobileAction([1, 0, 0]);
-          }}
-          onMouseUp={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onMouseLeave={() => handleMobileAction([0, 0, 0])}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            handleMobileAction([1, 0, 0]);
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onTouchCancel={(e) => {
-            e.preventDefault();
-            handleMobileAction([0, 0, 0]);
-          }}
-          onContextMenu={(e) => e.preventDefault()}
-          style={{
-            ...mobileBtnStyle,
-            fontSize: "2rem",
-            minWidth: "60px",
-            minHeight: "60px",
-            border: "2px solid #333",
-            borderRadius: "12px",
-            backgroundColor: "#f0f0f0",
-            cursor: "pointer",
-            userSelect: "none",
-            WebkitTouchCallout: "none",
-            WebkitUserSelect: "none",
-            touchAction: "manipulation",
-          }}
-        >
-          ➡️
-        </button>
-      </div>
-    </div>
-  </>
-)}
+      {!isDriving && !gameOver && countdown === null && (
+        <>
+          <h1 style={{ color: "#FFD700", fontSize: "2rem" }}>Enter Your Name</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", marginTop: "1rem" }}>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Driver name"
+              style={{
+                padding: "0.5rem 1rem",
+                backgroundColor: "#111",
+                border: "2px solid #FFD700",
+                color: "#FFD700",
+                borderRadius: "0.5rem",
+                fontSize: "1rem",
+              }}
+            />
+            <button
+              onClick={start}
+              style={{
+                padding: "0.5rem 1.2rem",
+                backgroundColor: "#FFD700",
+                color: "#000",
+                fontWeight: "bold",
+                borderRadius: "0.5rem",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              Start Driving
+            </button>
+          </div>
 
-{gameOver && (
-  <>
-    <h2>🏁 Game Over!</h2>
-    <p style={{ fontSize: "1.5rem" }}>Final Score: <strong>{score}</strong></p>
-    <button onClick={resetGame} style={{ padding: "0.75rem 1.5rem", fontSize: "1rem", marginTop: "1rem" }}>
-      🔁 Play Again
-    </button>
-  </>
-)}
+          <div style={{ 
+            marginTop: "1.5rem", 
+            textAlign: "center", 
+            color: "#AAA",
+            fontSize: "0.9rem"
+          }}>
+            <p><strong>Controls:</strong></p>
+            <p>Arrow Keys or WASD to drive</p>
+            <p>Hold multiple keys for combined actions</p>
+          </div>
+
+          {topScores.length > 0 && (
+            <div
+              style={{
+                marginTop: "2rem",
+                backgroundColor: "#111",
+                padding: "1rem 1.5rem",
+                borderRadius: "1rem",
+                maxWidth: "300px",
+                boxShadow: "0 0 10px rgba(255, 215, 0, 0.5)",
+                color: "#FFD700",
+              }}
+            >
+              <h4 style={{ marginTop: 0 }}>🏆 Top Scores</h4>
+              <ol style={{ paddingLeft: "1.2rem", margin: 0 }}>
+                {topScores.map((s, i) => {
+                  const prefix =
+                    i === 0
+                      ? "🥇 "
+                      : i === 1
+                      ? "🥈 "
+                      : i === 2
+                      ? "🥉 "
+                      : `${i + 1}. `;
+                  return (
+                    <li key={s.session_id} style={{ marginBottom: "0.25rem" }}>
+                      {prefix}
+                      {s.player || "Anonymous"} – {s.score.toFixed(1)}
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          )}
+        </>
+      )}
 
 {isDriving && (
-  <div style={{
-    position: "absolute",
-    top: "1rem",
-    left: "1rem",
-    backgroundColor: "rgba(0,0,0,0.6)",
-    color: "white",
-    padding: "0.5rem 1rem",
-    borderRadius: "0.5rem",
-    fontSize: "1rem"
-  }}>
-    🏆 Score: {score?.toFixed(2) ?? "0.00"}<br />
-    🏎️ Speed: {speed.toFixed(0)}
-  </div>
-)}
+      <>
+        <h2>Welcome, {name}!</h2>
+        <canvas
+          ref={canvasRef}
+          style={{
+            border: "1px solid #ccc",
+            imageRendering: "pixelated",
+            display: "block",
+            margin: "1rem auto",
+            touchAction: "none",
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            marginTop: "1rem",
+            gap: "0.5rem",
+            userSelect: "none",
+            WebkitUserSelect: "none",
+          }}
+        >
+          <div>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 1, 0]);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onMouseLeave={() => handleMobileAction([0, 0, 0])}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 1, 0]);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onTouchCancel={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                ...mobileBtnStyle,
+                fontSize: "2rem",
+                minWidth: "60px",
+                minHeight: "60px",
+                border: "2px solid #333",
+                borderRadius: "12px",
+                backgroundColor: "#f0f0f0",
+                cursor: "pointer",
+                userSelect: "none",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
+                touchAction: "manipulation",
+              }}
+            >
+              ⬆️
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: "1rem" }}>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleMobileAction([-1, 0, 0]);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onMouseLeave={() => handleMobileAction([0, 0, 0])}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileAction([-1, 0, 0]);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onTouchCancel={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                ...mobileBtnStyle,
+                fontSize: "2rem",
+                minWidth: "60px",
+                minHeight: "60px",
+                border: "2px solid #333",
+                borderRadius: "12px",
+                backgroundColor: "#f0f0f0",
+                cursor: "pointer",
+                userSelect: "none",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
+                touchAction: "manipulation",
+              }}
+            >
+              ⬅️
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0.8]);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onMouseLeave={() => handleMobileAction([0, 0, 0])}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0.8]);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onTouchCancel={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                ...mobileBtnStyle,
+                fontSize: "2rem",
+                minWidth: "60px",
+                minHeight: "60px",
+                border: "2px solid #333",
+                borderRadius: "12px",
+                backgroundColor: "#ffcccc",
+                cursor: "pointer",
+                userSelect: "none",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
+                touchAction: "manipulation",
+              }}
+            >
+              ⏹️
+            </button>
+            <button
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleMobileAction([1, 0, 0]);
+              }}
+              onMouseUp={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onMouseLeave={() => handleMobileAction([0, 0, 0])}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleMobileAction([1, 0, 0]);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onTouchCancel={(e) => {
+                e.preventDefault();
+                handleMobileAction([0, 0, 0]);
+              }}
+              onContextMenu={(e) => e.preventDefault()}
+              style={{
+                ...mobileBtnStyle,
+                fontSize: "2rem",
+                minWidth: "60px",
+                minHeight: "60px",
+                border: "2px solid #333",
+                borderRadius: "12px",
+                backgroundColor: "#f0f0f0",
+                cursor: "pointer",
+                userSelect: "none",
+                WebkitTouchCallout: "none",
+                WebkitUserSelect: "none",
+                touchAction: "manipulation",
+              }}
+            >
+              ➡️
+            </button>
+          </div>
+        </div>
+      </>
+    )}
 
-{countdown !== null && (
-  <div style={{
-    position: "absolute",
-    top: "40%",
-    left: "50%",
-    transform: "translate(-50%, -50%)",
-    fontSize: "4rem",
-    fontWeight: "bold",
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    color: "white",
-    padding: "1rem 2rem",
-    borderRadius: "1rem"
-  }}>
-    {countdown === 0 ? "GO!" : countdown}
-  </div>
-)}
+      {gameOver && (
+        <>
+          <h2>🏁 Game Over!</h2>
+          <p style={{ fontSize: "1.5rem" }}>Final Score: <strong>{score}</strong></p>
+          <button onClick={resetGame} style={{ padding: "0.75rem 1.5rem", fontSize: "1rem", marginTop: "1rem" }}>
+            🔁 Play Again
+          </button>
+        </>
+      )}
+
+      {isDriving && (
+        <div style={{
+          position: "absolute",
+          top: "1rem",
+          left: "1rem",
+          backgroundColor: "rgba(0,0,0,0.6)",
+          color: "white",
+          padding: "0.5rem 1rem",
+          borderRadius: "0.5rem",
+          fontSize: "1rem"
+        }}>
+          🏆 Score: {score?.toFixed(2) ?? "0.00"}<br />
+          🏎️ Speed: {speed.toFixed(0)}
+        </div>
+      )}
+
+      {countdown !== null && (
+        <div style={{
+          position: "absolute",
+          top: "40%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          fontSize: "4rem",
+          fontWeight: "bold",
+          backgroundColor: "rgba(0, 0, 0, 0.7)",
+          color: "white",
+          padding: "1rem 2rem",
+          borderRadius: "1rem"
+        }}>
+          {countdown === 0 ? "GO!" : countdown}
+        </div>
+      )}
     </div>
   );
 }
