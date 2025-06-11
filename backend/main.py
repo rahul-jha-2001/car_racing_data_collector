@@ -278,8 +278,7 @@ async def play_game(websocket: WebSocket):
         logger.info(f"WebSocket closed by '{name}'")
     finally:
         logger.info("Cleaning up after WebSocket disconnect...")
-        game_task.cancel()
-        env.close()
+
         logger.info(f"Pulling frames from Redis for session {session_id}")
         frames = None
         exists = await redis_client.exists(f"session:{session_id}")
@@ -302,6 +301,8 @@ async def play_game(websocket: WebSocket):
             await upload_session_bulk(frames=frames, session_id=session_id)
             await redis_client.delete(f"session:{session_id}")
             logger.info(f"✅ Redis session {session_id} cleaned up after upload")
+            game_task.cancel()
+            env.close()
         else:
             logger.error(f"Frames could not be read from Redis for session {session_id}")
 
