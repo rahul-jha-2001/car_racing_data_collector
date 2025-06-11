@@ -20,6 +20,7 @@ import tarfile
 import tempfile
 import os
 import backoff
+from in_memory import InMemoryStore
 
 
 from pydantic import BaseModel
@@ -58,6 +59,7 @@ AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 S3_BUCKET = os.getenv("S3_BUCKET")
 s3 = boto3.client("s3", region_name=AWS_REGION, config=Config(max_pool_connections=50))
 
+IN_MEMORY_STORE = InMemoryStore()
 
 # FastAPI setup
 
@@ -209,7 +211,7 @@ async def play_game(websocket: WebSocket):
                 obs, reward, terminated, truncated, _ = env.step(action)
                 total_reward += reward
 
-                await redis_client.rpush(
+                await IN_MEMORY_STORE.rpush(
                     f"session:{session_id}",
                     json.dumps({
                         "frame": sent_frames,
@@ -286,7 +288,7 @@ async def play_game(websocket: WebSocket):
             for attempt in range(3):
                 try:
                     frames = await asyncio.wait_for(
-                        redis_client.lrange(f"session:{session_id}", 0, -1),
+                        IN_MEMORY_STORE.lrange(f"session:{session_id}", 0, -1),
                         timeout=5.0
                     )
                     logger.info(f"Successfully pulled frames from Redis (attempt {attempt + 1})")
