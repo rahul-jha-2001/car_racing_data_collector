@@ -45,6 +45,11 @@ export default function Home() {
     }, 1000);
   }, []);
 
+  const mobileHoldIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+
+
+
   useEffect(() => {
     if (!isDriving) return;
 
@@ -235,10 +240,30 @@ export default function Home() {
     touchAction: "manipulation",
   };
 
-  // Mobile button handlers for touch support
-  const handleMobileAction = useCallback((action: number[]) => {
-    sendAction(action);
+  const startMobileHold = useCallback((action: number[]) => {
+    sendAction(action); // Immediate
+    if (mobileHoldIntervalRef.current) clearInterval(mobileHoldIntervalRef.current);
+    mobileHoldIntervalRef.current = setInterval(() => {
+      sendAction(action);
+    }, 50);
   }, [sendAction]);
+  
+  const stopMobileHold = useCallback(() => {
+    if (mobileHoldIntervalRef.current) {
+      clearInterval(mobileHoldIntervalRef.current);
+      mobileHoldIntervalRef.current = null;
+    }
+    sendAction([0, 0, 0]); // Reset
+  }, [sendAction]);
+  
+  useEffect(() => {
+    return () => {
+      if (mobileHoldIntervalRef.current) {
+        clearInterval(mobileHoldIntervalRef.current);
+      }
+    };
+  }, []);
+  
 
   return (
     <div
@@ -335,196 +360,171 @@ export default function Home() {
       )}
 
 {isDriving && (
-      <>
-        <h2>Welcome, {name}!</h2>
-        <canvas
-          ref={canvasRef}
-          style={{
-            border: "1px solid #ccc",
-            imageRendering: "pixelated",
-            display: "block",
-            margin: "1rem auto",
-            touchAction: "none",
+  <>
+    <h2>Welcome, {name}!</h2>
+    <canvas
+      ref={canvasRef}
+      style={{
+        border: "1px solid #ccc",
+        imageRendering: "pixelated",
+        display: "block",
+        margin: "1rem auto",
+        touchAction: "none",
+      }}
+    />
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        marginTop: "1rem",
+        gap: "0.5rem",
+        userSelect: "none",
+        WebkitUserSelect: "none",
+      }}
+    >
+      <div>
+        <button
+          onMouseDown={() => startMobileHold([0, 1, 0])}
+          onMouseUp={stopMobileHold}
+          onMouseLeave={stopMobileHold}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            startMobileHold([0, 1, 0]);
           }}
-        />
-        <div
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onTouchCancel={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            marginTop: "1rem",
-            gap: "0.5rem",
-            userSelect: "none",
+            ...mobileBtnStyle,
+            fontSize: "2rem",
+            minWidth: "60px",
+            minHeight: "60px",
+            border: "2px solid #333",
+            borderRadius: "12px",
+            backgroundColor: "#f0f0f0",
+            cursor: "pointer",
+            WebkitTouchCallout: "none",
             WebkitUserSelect: "none",
+            touchAction: "manipulation",
           }}
         >
-          <div>
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 1, 0]);
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onMouseLeave={() => handleMobileAction([0, 0, 0])}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 1, 0]);
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onTouchCancel={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onContextMenu={(e) => e.preventDefault()}
-              style={{
-                ...mobileBtnStyle,
-                fontSize: "2rem",
-                minWidth: "60px",
-                minHeight: "60px",
-                border: "2px solid #333",
-                borderRadius: "12px",
-                backgroundColor: "#f0f0f0",
-                cursor: "pointer",
-                userSelect: "none",
-                WebkitTouchCallout: "none",
-                WebkitUserSelect: "none",
-                touchAction: "manipulation",
-              }}
-            >
-              ⬆️
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleMobileAction([-1, 0, 0]);
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onMouseLeave={() => handleMobileAction([0, 0, 0])}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                handleMobileAction([-1, 0, 0]);
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onTouchCancel={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onContextMenu={(e) => e.preventDefault()}
-              style={{
-                ...mobileBtnStyle,
-                fontSize: "2rem",
-                minWidth: "60px",
-                minHeight: "60px",
-                border: "2px solid #333",
-                borderRadius: "12px",
-                backgroundColor: "#f0f0f0",
-                cursor: "pointer",
-                userSelect: "none",
-                WebkitTouchCallout: "none",
-                WebkitUserSelect: "none",
-                touchAction: "manipulation",
-              }}
-            >
-              ⬅️
-            </button>
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0.8]);
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onMouseLeave={() => handleMobileAction([0, 0, 0])}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0.8]);
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onTouchCancel={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onContextMenu={(e) => e.preventDefault()}
-              style={{
-                ...mobileBtnStyle,
-                fontSize: "2rem",
-                minWidth: "60px",
-                minHeight: "60px",
-                border: "2px solid #333",
-                borderRadius: "12px",
-                backgroundColor: "#ffcccc",
-                cursor: "pointer",
-                userSelect: "none",
-                WebkitTouchCallout: "none",
-                WebkitUserSelect: "none",
-                touchAction: "manipulation",
-              }}
-            >
-              ⏹️
-            </button>
-            <button
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleMobileAction([1, 0, 0]);
-              }}
-              onMouseUp={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onMouseLeave={() => handleMobileAction([0, 0, 0])}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                handleMobileAction([1, 0, 0]);
-              }}
-              onTouchEnd={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onTouchCancel={(e) => {
-                e.preventDefault();
-                handleMobileAction([0, 0, 0]);
-              }}
-              onContextMenu={(e) => e.preventDefault()}
-              style={{
-                ...mobileBtnStyle,
-                fontSize: "2rem",
-                minWidth: "60px",
-                minHeight: "60px",
-                border: "2px solid #333",
-                borderRadius: "12px",
-                backgroundColor: "#f0f0f0",
-                cursor: "pointer",
-                userSelect: "none",
-                WebkitTouchCallout: "none",
-                WebkitUserSelect: "none",
-                touchAction: "manipulation",
-              }}
-            >
-              ➡️
-            </button>
-          </div>
-        </div>
-      </>
-    )}
+          ⬆️
+        </button>
+      </div>
+      <div style={{ display: "flex", gap: "1rem" }}>
+        <button
+          onMouseDown={() => startMobileHold([-1, 0, 0])}
+          onMouseUp={stopMobileHold}
+          onMouseLeave={stopMobileHold}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            startMobileHold([-1, 0, 0]);
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onTouchCancel={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            ...mobileBtnStyle,
+            fontSize: "2rem",
+            minWidth: "60px",
+            minHeight: "60px",
+            border: "2px solid #333",
+            borderRadius: "12px",
+            backgroundColor: "#f0f0f0",
+            cursor: "pointer",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            touchAction: "manipulation",
+          }}
+        >
+          ⬅️
+        </button>
+
+        <button
+          onMouseDown={() => startMobileHold([0, 0, 0.8])}
+          onMouseUp={stopMobileHold}
+          onMouseLeave={stopMobileHold}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            startMobileHold([0, 0, 0.8]);
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onTouchCancel={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            ...mobileBtnStyle,
+            fontSize: "2rem",
+            minWidth: "60px",
+            minHeight: "60px",
+            border: "2px solid #333",
+            borderRadius: "12px",
+            backgroundColor: "#ffcccc",
+            cursor: "pointer",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            touchAction: "manipulation",
+          }}
+        >
+          ⏹️
+        </button>
+
+        <button
+          onMouseDown={() => startMobileHold([1, 0, 0])}
+          onMouseUp={stopMobileHold}
+          onMouseLeave={stopMobileHold}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            startMobileHold([1, 0, 0]);
+          }}
+          onTouchEnd={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onTouchCancel={(e) => {
+            e.preventDefault();
+            stopMobileHold();
+          }}
+          onContextMenu={(e) => e.preventDefault()}
+          style={{
+            ...mobileBtnStyle,
+            fontSize: "2rem",
+            minWidth: "60px",
+            minHeight: "60px",
+            border: "2px solid #333",
+            borderRadius: "12px",
+            backgroundColor: "#f0f0f0",
+            cursor: "pointer",
+            WebkitTouchCallout: "none",
+            WebkitUserSelect: "none",
+            touchAction: "manipulation",
+          }}
+        >
+          ➡️
+        </button>
+      </div>
+    </div>
+  </>
+)}
+
 
       {gameOver && (
         <>
